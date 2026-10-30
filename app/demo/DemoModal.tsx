@@ -166,7 +166,7 @@ export default function DemoModal() {
             }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#00f5d4' }}>
                 <span className="status-dot" style={{ width: 6, height: 6 }} />
-                BACKEND ACTIVE // SUPABASE POSTGRES
+                SUPABASE API // AUTHENTICATED ROUTES
               </span>
               <a
                 href="/audit"

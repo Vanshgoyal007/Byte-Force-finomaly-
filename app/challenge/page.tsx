@@ -180,8 +180,7 @@ export default function ChallengePage() {
     verifySessionApi(
       liveVector,
       { pasteDetected: isPasted, botSuspected: false },
-      undefined,
-      personAVectors
+      undefined
     ).catch(() => {});
 
     setResult({

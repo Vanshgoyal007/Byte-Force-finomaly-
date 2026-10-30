@@ -17,7 +17,7 @@ export const IGNORED_KEYS = new Set([
 ]);
 
 // ── Normalisation bounds ─────────────────────────────────────────────────────
-// Maps raw values to [0, 1] using percentile-calibrated bounds.
+// Maps raw values to [0, 1] using prototype normalization ranges.
 export const BOUNDS = {
   avgHoldTime:       { min: 40,  max: 250 },  // ms
   avgFlightTime:     { min: 20,  max: 400 },  // ms
@@ -27,9 +27,6 @@ export const BOUNDS = {
 } as const;
 
 export type FeatureKey = keyof typeof BOUNDS;
-
-// Exponential Moving Average (EMA) weight for verified match baseline adaptation
-export const EMA_ALPHA = 0.12;
 
 export function rawVectorToArray(raw: RawVector): [number, number, number, number, number] {
   return [raw.avgHoldTime, raw.avgFlightTime, raw.wpm, raw.holdTimeVariance, raw.flightTimeVariance];
@@ -43,15 +40,6 @@ export function arrayToRawVector(arr: [number, number, number, number, number] |
     holdTimeVariance: arr[3],
     flightTimeVariance: arr[4],
   };
-}
-
-export function applyEmaUpdate(oldBaseline: RawVector, liveVector: RawVector, alpha: number = EMA_ALPHA): RawVector {
-  const keys: (keyof RawVector)[] = ['avgHoldTime', 'avgFlightTime', 'wpm', 'holdTimeVariance', 'flightTimeVariance'];
-  const res = {} as RawVector;
-  for (const k of keys) {
-    res[k] = (1 - alpha) * oldBaseline[k] + alpha * liveVector[k];
-  }
-  return res;
 }
 
 export function validateNumericVector(v: unknown): { valid: boolean; error?: string; vector?: [number, number, number, number, number] } {
@@ -94,6 +82,22 @@ export interface RawVector {
   wpm: number;
   holdTimeVariance: number;
   flightTimeVariance: number;
+}
+
+export function isValidRawVector(value: unknown): value is RawVector {
+  if (!value || typeof value !== 'object') return false;
+  const vector = value as Record<string, unknown>;
+  const result = validateNumericVector([
+    vector.avgHoldTime,
+    vector.avgFlightTime,
+    vector.wpm,
+    vector.holdTimeVariance,
+    vector.flightTimeVariance,
+  ]);
+  return result.valid &&
+    typeof vector.avgHoldTime === 'number' && vector.avgHoldTime > 0 &&
+    typeof vector.avgFlightTime === 'number' && vector.avgFlightTime > 0 &&
+    typeof vector.wpm === 'number' && vector.wpm > 0;
 }
 
 export type NormVector = [number, number, number, number, number]; // same order as FEATURE_NAMES
@@ -239,9 +243,9 @@ function euclideanPenalty(a: NormVector, b: NormVector): number {
  * Compute the hybrid similarity score between a baseline centroid and a live vector.
  *
  * Returns a value in [0, 1]:
- *   ≥ 0.85  → identity match
- *   ≥ 0.65  → rushed / uncertain state  
- *   < 0.65  → behavioral anomaly
+ *   ≥ 0.85  → close rhythm similarity
+ *   ≥ 0.65  → rhythm variation
+ *   < 0.65  → larger rhythm deviation
  */
 export function hybridSimilarity(baseline: NormVector, live: NormVector): number {
   const cosine = cosineSimilarity(baseline, live);
@@ -258,7 +262,7 @@ export function perSessionSimilarities(sessions: NormVector[], live: NormVector)
   return sessions.map(s => hybridSimilarity(s, live));
 }
 
-// ── Scoring band ──────────────────────────────────────────────────────────────
+// ── Similarity display band (not an identity decision) ────────────────────────
 export type Band = 'match' | 'rushed' | 'anomaly';
 
 export function scoreToBand(score: number): Band {

@@ -157,8 +157,7 @@ export default function LoginSession({ baselineSessions, onResult, onReenroll }:
     const verifyPromise = verifySessionApi(
       liveVector,
       { pasteDetected: isPasted, botSuspected: false },
-      undefined,
-      baselineSessions
+      undefined
     );
 
     // Seamlessly transition right when animation completes

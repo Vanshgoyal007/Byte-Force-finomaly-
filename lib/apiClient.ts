@@ -62,8 +62,7 @@ export async function enrollSessionApi(
 export async function verifySessionApi(
   vector: RawVector,
   flags?: { pasteDetected?: boolean; botSuspected?: boolean },
-  userId = getDemoUserId(),
-  clientBaseline?: RawVector[]
+  userId = getDemoUserId()
 ): Promise<{
   success: boolean;
   score?: number;
@@ -84,7 +83,6 @@ export async function verifySessionApi(
         userId,
         vector: rawVectorToArray(vector),
         flags,
-        clientBaseline,
       }),
       signal: controller.signal,
     });

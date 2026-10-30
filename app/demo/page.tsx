@@ -22,6 +22,11 @@ import { enrollSessionApi, verifySessionApi } from '@/lib/apiClient';
 import FlatRadarChart from '@/components/FlatRadarChart';
 import Footer from '@/components/Footer';
 import RhythmStrip from '@/components/RhythmStrip';
+import {
+  BehaviorObservation,
+  deriveBehaviorObservation,
+  observationFromRawVector,
+} from '@/lib/behavioralProfile';
 
 const STORAGE_KEY = 'finomaly_baseline_v4';
 
@@ -34,6 +39,23 @@ const BASELINE_PASSAGES = [
 const VERIFY_PASSPHRASE = 'behavioral authentication protects accounts where passwords cannot reach';
 
 const MIN_WORDS = 20;
+
+function loadSavedObservations(): BehaviorObservation[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { sessions?: unknown; observations?: unknown };
+    if (Array.isArray(parsed.observations) && parsed.observations.length >= 3) {
+      return parsed.observations as BehaviorObservation[];
+    }
+    return Array.isArray(parsed.sessions)
+      ? parsed.sessions.slice(0, 3).map((vector) => observationFromRawVector(vector as RawVector))
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 type Step = 'enroll' | 'verify' | 'result';
 
@@ -72,6 +94,7 @@ export default function DemoPage() {
   const [showReset, setShowReset] = useState(false);
   const [step, setStep] = useState<Step>('enroll');
   const [baselineSessions, setBaselineSessions] = useState<RawVector[]>([]);
+  const [baselineObservations, setBaselineObservations] = useState<BehaviorObservation[]>([]);
   const [enrollPassageIdx, setEnrollPassageIdx] = useState(0);
   const [typedText, setTypedText] = useState('');
   const [isPasted, setIsPasted] = useState(false);
@@ -90,6 +113,8 @@ export default function DemoPage() {
   // Check saved baseline on mount
   useEffect(() => {
     const saved = loadSavedBaseline();
+    const savedObservations = loadSavedObservations();
+    setBaselineObservations(savedObservations);
     if (saved && saved.length >= 1) {
       setBaselineSessions(saved);
       setStep('verify');
@@ -160,18 +185,32 @@ export default function DemoPage() {
       totalDurationMs: totalMs,
       charCount: typedText.length,
     });
+    const observation = deriveBehaviorObservation({
+      holdTimes: keystrokesRef.current.map((event) => event.holdTime),
+      flightTimes: flightsRef.current.map((event) => event.flightTime),
+      elapsedMs: totalMs,
+      characterCount: typedText.length,
+      cursorSamples: [],
+      clickTimes: [],
+      interactionTimes: keystrokesRef.current.map((event) => event.upTime),
+      idleMs: flightsRef.current.filter((event) => event.flightTime >= 2000).reduce((sum, event) => sum + event.flightTime, 0),
+      focusTransitions: 0,
+      deviceContext: window.matchMedia('(pointer: coarse)').matches ? 'touch' : 'pointer',
+    });
 
     enrollSessionApi(vector).catch(() => {});
 
     const updated = [...baselineSessions, vector];
+    const updatedObservations = [...baselineObservations, observation];
     setBaselineSessions(updated);
+    setBaselineObservations(updatedObservations);
 
     if (enrollPassageIdx < 2) {
       setEnrollPassageIdx((i) => i + 1);
       resetKeystrokeTracking();
     } else {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 4, sessions: updated }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 4, sessions: updated, observations: updatedObservations }));
       } catch {}
       setStep('verify');
       resetKeystrokeTracking();
@@ -203,8 +242,7 @@ export default function DemoPage() {
     verifySessionApi(
       liveVector,
       { pasteDetected: isPasted, botSuspected: false },
-      undefined,
-      baselineSessions
+      undefined
     ).catch(() => {});
 
     setResult({
@@ -223,6 +261,7 @@ export default function DemoPage() {
       localStorage.removeItem(STORAGE_KEY);
     } catch {}
     setBaselineSessions([]);
+    setBaselineObservations([]);
     setEnrollPassageIdx(0);
     setResult(null);
     setStep('enroll');

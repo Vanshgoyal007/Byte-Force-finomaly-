@@ -1,0 +1,428 @@
+.main {
+  padding-top: 58px;
+  padding-bottom: 76px;
+}
+
+.heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  align-items: end;
+  gap: 38px;
+  margin-bottom: 28px;
+}
+
+.heading h1 {
+  margin: 16px 0;
+  font-size: clamp(2.5rem, 5vw, 4.1rem);
+}
+
+.heading p {
+  max-width: 640px;
+}
+
+.account {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 21px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.authPanel {
+  max-width: 620px;
+  margin: 20px auto;
+  padding: 26px;
+}
+
+.authPanel h2 {
+  margin: 10px 0;
+}
+
+.accountBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0 16px;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  font-size: .82rem;
+}
+
+.syncBox {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.stepUpForm {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.stepUpForm label {
+  display: grid;
+  gap: 5px;
+  font-size: .78rem;
+}
+
+.account strong {
+  font-size: 2rem;
+  letter-spacing: -.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.disclosure,
+.notice,
+.error,
+.policyNote {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  font-size: .82rem;
+  margin: 0 0 18px;
+}
+
+.disclosure span,
+.policyNote span {
+  color: var(--text-muted);
+}
+
+.notice {
+  border-color: #b6cba8;
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.error {
+  border-color: #e8c7bd;
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.panel,
+.history,
+.evaluation,
+.profilePanel {
+  padding: 22px;
+}
+
+.panel h2,
+.history h2,
+.evaluation h2 {
+  margin-top: 6px;
+  font-size: 1.4rem;
+}
+
+.form {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.form label:not(.check),
+.threshold {
+  display: grid;
+  gap: 7px;
+  font-size: .82rem;
+  font-weight: 550;
+}
+
+.form textarea {
+  background: var(--surface);
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+.check input {
+  margin-top: 4px;
+  flex: 0 0 auto;
+}
+
+.history,
+.evaluation {
+  margin-top: 18px;
+}
+
+.transactionList {
+  display: grid;
+  gap: 12px;
+  margin-top: 17px;
+}
+
+.transaction {
+  padding: 17px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #f9f9f3;
+}
+
+.transactionTitle,
+.transactionTitle > div,
+.transactionSummary,
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.transactionTitle {
+  justify-content: space-between;
+}
+
+.transactionTitle > div {
+  align-items: baseline;
+}
+
+.transactionSummary {
+  padding: 13px 0 8px;
+  color: var(--text-muted);
+  font-size: .76rem;
+}
+
+.transactionSummary strong {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.reasons {
+  display: grid;
+  gap: 4px;
+  padding-left: 19px;
+  color: var(--text-muted);
+  font-size: .8rem;
+}
+
+.auditList {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auditList li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f9f9f3;
+  font-size: .8rem;
+}
+
+.auditList time {
+  color: var(--text-muted);
+  font-size: .74rem;
+}
+
+.actions {
+  margin-top: 12px;
+}
+
+.threshold {
+  grid-template-columns: auto minmax(90px, 120px);
+  align-items: center;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 9px;
+  margin-top: 15px;
+}
+
+.metricsGrid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: #f9f9f3;
+}
+
+.metricsGrid span {
+  color: var(--text-muted);
+  font-size: .72rem;
+}
+
+.metricsGrid strong {
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.profilePanel {
+  margin-top: 18px;
+}
+
+.profileWarning {
+  margin: 12px 0;
+  padding: 11px 13px;
+  border: 1px solid #e8c7bd;
+  border-radius: 6px;
+  background: var(--danger-light);
+  color: var(--danger);
+  font-size: .8rem;
+}
+
+.coverageGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.coverageGrid > div,
+.traitGrid > div,
+.updateHistory li {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: #f9f9f3;
+}
+
+.coverageGrid span,
+.traitGrid span,
+.traitGrid small,
+.updateHistory time,
+.updateHistory small {
+  color: var(--text-muted);
+  font-size: .75rem;
+}
+
+.coverageTrack {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e6e9df;
+}
+
+.coverageTrack span {
+  display: block;
+  height: 100%;
+  background: var(--success);
+}
+
+.profileSubheading {
+  margin: 20px 0 8px;
+  font-size: .95rem;
+}
+
+.traitGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.traitGrid strong {
+  font-size: .8rem;
+  text-transform: capitalize;
+}
+
+.traitGrid span {
+  font-size: .78rem;
+}
+
+.missingSignals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 24px;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font-size: .78rem;
+}
+
+.updateHistory {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.updateHistory li {
+  font-size: .78rem;
+}
+
+.updateHistory span {
+  color: var(--text-muted);
+}
+
+.evaluation > p {
+  max-width: 880px;
+  margin-top: 12px;
+}
+
+.policyNote {
+  margin-top: 18px;
+  margin-bottom: 0;
+}
+
+@media (max-width: 820px) {
+  .heading,
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .heading {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 560px) {
+  .main {
+    padding-top: 35px;
+  }
+
+  .panel,
+  .history,
+  .evaluation,
+  .profilePanel {
+    padding: 16px;
+  }
+
+  .transactionTitle {
+    align-items: flex-start;
+  }
+
+  .threshold {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .stepUpForm {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+}

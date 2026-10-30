@@ -138,7 +138,7 @@ export default function ImposterChallengeModal() {
             }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#00f5d4' }}>
                 <span className="status-dot" style={{ width: 6, height: 6 }} />
-                BACKEND ACTIVE // SUPABASE POSTGRES
+                SUPABASE API // AUTHENTICATED ROUTES
               </span>
               <a
                 href="/audit"
@@ -171,7 +171,7 @@ export default function ImposterChallengeModal() {
                   IMPOSTER CHALLENGE
                 </p>
                 <p style={{ fontSize: '0.85rem', color: 'var(--muted-foreground)', margin: '0 0 1.5rem', lineHeight: 1.5, textAlign: 'left' }}>
-                  This mode proves the 100% intercept rate of our biometric engine. Grab a friend (the Imposter) and follow these instructions:
+                  This is a controlled demonstration of how two typing samples can differ. It does not measure real-world interception accuracy. If you like, grab a friend and follow these instructions:
                 </p>
                 <ol style={{ fontSize: '0.85rem', color: 'var(--foreground)', margin: '0 0 1.5rem', lineHeight: 1.6, textAlign: 'left', paddingLeft: '1.25rem' }}>
                   <li style={{ marginBottom: '0.5rem' }}><strong>Person A (The Owner)</strong> sets a one-time baseline by typing naturally.</li>

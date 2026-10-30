@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '@/lib/supabase';
 import {
   checkRateLimit,
   validateApiAuth,
   getCorsHeaders,
   handleCorsPreflight,
 } from '@/lib/apiSecurity';
-import { sanitizeUserId } from '@/lib/security';
+import {
+  bankingJson,
+  getBankingAuthContext,
+  missingBankingConfiguration,
+  rejectCrossOriginMutation,
+} from '@/lib/bankingAuth';
 import {
   validateNumericVector,
   arrayToRawVector,
@@ -17,7 +21,6 @@ import {
 export const runtime = 'nodejs';
 
 interface EnrollRequestBody {
-  userId: string;
   vector: [number, number, number, number, number];
   consent: boolean;
 }
@@ -27,6 +30,8 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const originError = rejectCrossOriginMutation(req);
+  if (originError) return originError;
   const corsHeaders = getCorsHeaders(req);
 
   // 1. Rate limiting per IP (strict limit for enrollment)
@@ -54,6 +59,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (missingBankingConfiguration()) {
+    return NextResponse.json(
+      { error: 'Supabase Auth and server database environment are not configured.' },
+      { status: 503, headers: baseHeaders }
+    );
+  }
+  const context = await getBankingAuthContext(req);
+  if (!context) {
+    return NextResponse.json(
+      { error: 'Sign in is required to save a server-side baseline.' },
+      { status: 401, headers: baseHeaders }
+    );
+  }
+
   // 3. Body parsing & validation
   let body: EnrollRequestBody;
   try {
@@ -65,15 +84,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { userId, vector, consent } = body;
-  const cleanUserId = sanitizeUserId(userId);
-
-  if (!cleanUserId) {
-    return NextResponse.json(
-      { error: 'userId must be a non-empty alphanumeric string (max 64 characters)' },
-      { status: 400, headers: baseHeaders }
-    );
-  }
+  const { vector, consent } = body;
 
   if (consent !== true) {
     return NextResponse.json(
@@ -94,19 +105,13 @@ export async function POST(req: NextRequest) {
   const newSessionRaw: RawVector = arrayToRawVector(vectorValidation.vector);
 
   // 4. Supabase DB interaction
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json(
-      { error: 'Database service not configured' },
-      { status: 503, headers: baseHeaders }
-    );
-  }
+  const supabase = context.databaseClient;
 
   try {
     const { data: existingProfile, error: fetchError } = await supabase
       .from('profiles')
       .select('*')
-      .eq('user_id', cleanUserId)
+      .eq('user_id', context.user.id)
       .maybeSingle();
 
     if (fetchError) {
@@ -127,7 +132,7 @@ export async function POST(req: NextRequest) {
       };
 
       const { error: insertError } = await supabase.from('profiles').insert({
-        user_id: cleanUserId,
+        user_id: context.user.id,
         baseline: baselinePayload,
         sessions_count: 1,
         consent: true,
@@ -137,8 +142,8 @@ export async function POST(req: NextRequest) {
 
       if (insertError) {
         return NextResponse.json(
-          { error: 'Failed to record initial baseline session' },
-          { status: 500, headers: baseHeaders }
+          { error: 'A baseline was concurrently created; refresh and try again.' },
+          { status: 409, headers: baseHeaders }
         );
       }
 
@@ -151,13 +156,19 @@ export async function POST(req: NextRequest) {
         ? existingBaseline.sessions
         : [existingBaseline?.centroid || existingBaseline];
 
-      // Keep up to 10 historical sessions to prevent unbounded DB growth
-      const updatedSessions: RawVector[] = [...priorSessions, newSessionRaw].slice(-10);
+      if (Number(existingProfile.sessions_count) >= 3 || priorSessions.length >= 3) {
+        return NextResponse.json(
+          { error: 'Baseline already has three observations. Delete and explicitly re-enroll to replace it.' },
+          { status: 409, headers: baseHeaders }
+        );
+      }
+
+      const updatedSessions: RawVector[] = [...priorSessions, newSessionRaw];
       const updatedCentroid = averageRawVectors(updatedSessions);
       sessionsCount = updatedSessions.length;
       enrolled = sessionsCount >= 3;
 
-      const { error: updateError } = await supabase
+      const { data: updatedProfile, error: updateError } = await supabase
         .from('profiles')
         .update({
           baseline: {
@@ -168,12 +179,21 @@ export async function POST(req: NextRequest) {
           consent: true,
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', cleanUserId);
+        .eq('user_id', context.user.id)
+        .eq('sessions_count', existingProfile.sessions_count)
+        .select('user_id')
+        .maybeSingle();
 
       if (updateError) {
         return NextResponse.json(
           { error: 'Failed to update baseline session in database' },
           { status: 500, headers: baseHeaders }
+        );
+      }
+      if (!updatedProfile) {
+        return NextResponse.json(
+          { error: 'Baseline state changed; refresh and try again.' },
+          { status: 409, headers: baseHeaders }
         );
       }
     }

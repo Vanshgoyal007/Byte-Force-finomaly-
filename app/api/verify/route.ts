@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '@/lib/supabase';
 import {
   checkRateLimit,
   validateApiAuth,
   getCorsHeaders,
   handleCorsPreflight,
 } from '@/lib/apiSecurity';
-import { sanitizeUserId } from '@/lib/security';
+import {
+  getBankingAuthContext,
+  missingBankingConfiguration,
+} from '@/lib/bankingAuth';
 import {
   validateNumericVector,
   arrayToRawVector,
+  isValidRawVector,
   normaliseVector,
   hybridSimilarity,
   scoreToBand,
   computeFeatureDeltas,
-  applyEmaUpdate,
-  EMA_ALPHA,
   RawVector,
   averageRawVectors,
 } from '@/app/demo/biometrics';
@@ -23,13 +24,11 @@ import {
 export const runtime = 'nodejs';
 
 interface VerifyRequestBody {
-  userId: string;
   vector: [number, number, number, number, number];
   flags?: {
     pasteDetected?: boolean;
     botSuspected?: boolean;
   };
-  clientBaseline?: RawVector[];
 }
 
 export async function OPTIONS(req: NextRequest) {
@@ -64,6 +63,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (missingBankingConfiguration()) {
+    return NextResponse.json(
+      { error: 'Supabase Auth and server database environment are not configured.' },
+      { status: 503, headers: baseHeaders }
+    );
+  }
+  const context = await getBankingAuthContext(req);
+  if (!context) {
+    return NextResponse.json(
+      { error: 'Sign in is required to verify a server-side baseline.' },
+      { status: 401, headers: baseHeaders }
+    );
+  }
+
   // 3. Request parsing & validation
   let body: VerifyRequestBody;
   try {
@@ -75,15 +88,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { userId, vector, flags } = body;
-  const cleanUserId = sanitizeUserId(userId);
-
-  if (!cleanUserId) {
-    return NextResponse.json(
-      { error: 'userId must be a non-empty alphanumeric string (max 64 characters)' },
-      { status: 400, headers: baseHeaders }
-    );
-  }
+  const { vector, flags } = body;
 
   const vectorValidation = validateNumericVector(vector);
   if (!vectorValidation.valid || !vectorValidation.vector) {
@@ -98,19 +103,13 @@ export async function POST(req: NextRequest) {
   const botSuspected = Boolean(flags?.botSuspected);
 
   // 4. Supabase DB interaction
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json(
-      { error: 'Database service not configured' },
-      { status: 503, headers: baseHeaders }
-    );
-  }
+  const supabase = context.databaseClient;
 
   try {
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', cleanUserId)
+      .from('banking_profiles')
+      .select('baseline, sessions_count')
+      .eq('user_id', context.user.id)
       .maybeSingle();
 
     if (profileError) {
@@ -120,34 +119,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let baselineRaw: RawVector;
-
-    if (!profile || !profile.baseline) {
-      if (body.clientBaseline && Array.isArray(body.clientBaseline) && body.clientBaseline.length > 0) {
-        baselineRaw = averageRawVectors(body.clientBaseline);
-        await supabase.from('profiles').upsert({
-          user_id: cleanUserId,
-          baseline: {
-            sessions: body.clientBaseline,
-            centroid: baselineRaw,
-          },
-          sessions_count: body.clientBaseline.length,
-          consent: true,
-          updated_at: new Date().toISOString(),
-        });
-      } else {
-        return NextResponse.json(
-          { error: 'No enrolled baseline found for this user. Please complete baseline enrollment first.' },
-          { status: 404, headers: baseHeaders }
-        );
-      }
-    } else {
-      baselineRaw =
-        profile.baseline.centroid ||
-        (Array.isArray(profile.baseline.sessions) && profile.baseline.sessions.length > 0
-          ? profile.baseline.sessions[0]
-          : profile.baseline);
+    const storedSessions = Array.isArray(profile?.baseline?.sessions)
+      ? profile.baseline.sessions.filter(isValidRawVector) as RawVector[]
+      : [];
+    if (!profile?.baseline || Number(profile.sessions_count) < 3 || storedSessions.length < 3) {
+      return NextResponse.json(
+        { error: 'A complete server-enrolled baseline is required before verification.' },
+        { status: profile ? 409 : 404, headers: baseHeaders }
+      );
     }
+
+    const baselineRaw = averageRawVectors(storedSessions);
 
     const baselineNorm = normaliseVector(baselineRaw);
     const liveNorm = normaliseVector(liveRaw);
@@ -163,29 +145,11 @@ export async function POST(req: NextRequest) {
     const band = scoreToBand(score);
     const featureDeltas = computeFeatureDeltas(baselineRaw, liveRaw);
 
-    // 5. Apply Exponential Moving Average (EMA) baseline update ONLY when band is 'match'
-    if (band === 'match') {
-      const updatedBaselineRaw = applyEmaUpdate(baselineRaw, liveRaw, EMA_ALPHA);
-      const updatedSessions = Array.isArray(profile?.baseline?.sessions)
-        ? [...profile.baseline.sessions, liveRaw].slice(-5) // Keep last 5 sessions
-        : [updatedBaselineRaw];
-
-      await supabase
-        .from('profiles')
-        .update({
-          baseline: {
-            sessions: updatedSessions,
-            centroid: updatedBaselineRaw,
-          },
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', cleanUserId);
-    }
-
-    // 6. Write immutable audit log row
+    // Verification observes the stored baseline but never updates it automatically.
+    // Explicit enrollment is the only supported baseline write path.
     // NEVER store typed text, passwords, or raw keys: only numeric metrics, band, and flags
     await supabase.from('audit_logs').insert({
-      user_id: cleanUserId,
+      user_id: context.user.id,
       score: Number(score.toFixed(4)),
       band,
       features: {

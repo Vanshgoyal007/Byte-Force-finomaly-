@@ -54,11 +54,11 @@ function ScoreRing({ score, band }: { score: number; band: Band }) {
           <span style={{ fontSize: '2rem', fontWeight: 700, color, fontFamily: 'JetBrains Mono, monospace', lineHeight: 1 }}>
             {Math.round(score * 100)}%
           </span>
-          <span style={{ fontSize: '0.65rem', color: 'var(--muted-foreground)', marginTop: 3, fontFamily: 'JetBrains Mono, monospace' }}>MATCH</span>
+          <span style={{ fontSize: '0.65rem', color: 'var(--muted-foreground)', marginTop: 3, fontFamily: 'JetBrains Mono, monospace' }}>SIMILARITY</span>
         </div>
       </div>
       <div style={{ padding: '0.4rem 1.125rem', borderRadius: 9999, border: `1px solid ${color}55`, background: `${color}11`, color, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem', fontWeight: 600 }}>
-        {band === 'match' ? 'IDENTITY VERIFIED' : band === 'rushed' ? 'RUSHED STATE' : 'ANOMALY DETECTED'}
+        {band === 'match' ? 'CLOSE RHYTHM MATCH' : band === 'rushed' ? 'RHYTHM VARIATION' : 'RHYTHM ANOMALY'}
       </div>
     </div>
   );

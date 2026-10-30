@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { getDemoUserId } from '@/lib/apiClient';
 import Footer from '@/components/Footer';
 
 export interface AuditRecord {
@@ -25,7 +24,6 @@ export default function AuditPage() {
   const [logs, setLogs] = useState<AuditRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userId, setUserId] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
 
   // Filters & Search
@@ -37,18 +35,12 @@ export default function AuditPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
-  // Scope filter: 'all' (default, displays all demo audit logs) vs 'mine' (only current browser session)
-  const [scope, setScope] = useState<'all' | 'mine'>('all');
-
-  const fetchAuditLogs = useCallback(async (currentScope = scope) => {
+  const fetchAuditLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const currentId = getDemoUserId();
-      const queryUser = currentScope === 'mine' ? currentId : 'all';
-
-      const res = await fetch(`/api/audit?userId=${encodeURIComponent(queryUser)}`, {
+      const res = await fetch('/api/audit', {
         headers: {
           'x-finomaly-client': 'web',
         },
@@ -68,13 +60,11 @@ export default function AuditPage() {
     } finally {
       setLoading(false);
     }
-  }, [scope]);
+  }, []);
 
   useEffect(() => {
-    const currentId = getDemoUserId();
-    setUserId(currentId);
-    fetchAuditLogs('all');
-  }, []);
+    void fetchAuditLogs();
+  }, [fetchAuditLogs]);
 
   // Format time (local + relative)
   const formatTime = (isoString: string) => {
@@ -153,39 +143,16 @@ export default function AuditPage() {
             </span>
             <h1 style={{ marginBottom: '6px' }}>Audit log</h1>
             <p className="body-text text-muted">
-              Live telemetry records captured from demo and challenge verification sessions.
+              Verification records for the currently authenticated Supabase account only.
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <div style={{ display: 'inline-flex', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '3px' }}>
-              <button
-                type="button"
-                className={`btn small ${scope === 'all' ? 'btn-primary' : 'btn-text'}`}
-                style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '4px' }}
-                onClick={() => {
-                  setScope('all');
-                  fetchAuditLogs('all');
-                }}
-              >
-                All sessions
-              </button>
-              <button
-                type="button"
-                className={`btn small ${scope === 'mine' ? 'btn-primary' : 'btn-text'}`}
-                style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: '4px' }}
-                onClick={() => {
-                  setScope('mine');
-                  fetchAuditLogs('mine');
-                }}
-              >
-                My session only
-              </button>
-            </div>
+            <span className="small text-muted">Authenticated account only</span>
             <button
               type="button"
               className="btn btn-secondary small"
-              onClick={() => fetchAuditLogs(scope)}
+              onClick={() => fetchAuditLogs()}
               disabled={loading}
             >
               {loading ? 'Refreshing...' : 'Refresh'}

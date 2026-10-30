@@ -1,92 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '@/lib/supabase';
 import {
-  checkRateLimit,
-  validateApiAuth,
-  validateAdminAuth,
-  getCorsHeaders,
-  handleCorsPreflight,
-} from '@/lib/apiSecurity';
-import { sanitizeUserId } from '@/lib/security';
+  bankingJson,
+  bankingRateLimit,
+  getBankingAuthContext,
+  missingBankingConfiguration,
+} from '@/lib/bankingAuth';
+import { getCorsHeaders, handleCorsPreflight } from '@/lib/apiSecurity';
 
 export const runtime = 'nodejs';
 
-export async function OPTIONS(req: NextRequest) {
-  return handleCorsPreflight(req);
+export async function OPTIONS(request: NextRequest) {
+  return handleCorsPreflight(request);
 }
 
-export async function GET(req: NextRequest) {
-  const corsHeaders = getCorsHeaders(req);
-
-  // 1. Rate limiting per IP
-  const rateLimit = checkRateLimit(req, { routeKey: 'audit', maxRequests: 40 });
-  const baseHeaders = {
-    ...corsHeaders,
-    'X-RateLimit-Limit': '40',
-    'X-RateLimit-Remaining': String(rateLimit.remaining),
-    'X-RateLimit-Reset': String(rateLimit.resetAt),
-  };
-
-  if (!rateLimit.allowed) {
+export async function GET(request: NextRequest) {
+  const corsHeaders = getCorsHeaders(request);
+  const rateLimit = bankingRateLimit(request, 'audit', 40);
+  if (rateLimit) return rateLimit;
+  if (missingBankingConfiguration()) {
     return NextResponse.json(
-      { error: 'Rate limit exceeded. Please try again in 1 minute.' },
-      { status: 429, headers: baseHeaders }
+      { error: 'Supabase Auth and server database environment are not configured.' },
+      { status: 503, headers: corsHeaders },
     );
   }
 
-  // 2. Base API authorization check
-  const authCheck = validateApiAuth(req);
-  if (!authCheck.valid) {
+  const context = await getBankingAuthContext(request);
+  if (!context) {
     return NextResponse.json(
-      { error: authCheck.error || 'Unauthorized' },
-      { status: 401, headers: baseHeaders }
+      { error: 'Sign in is required to view audit records.' },
+      { status: 401, headers: corsHeaders },
     );
   }
 
-  // 3. Query parameter validation
-  const { searchParams } = new URL(req.url);
-  const rawUserId = searchParams.get('userId');
-  const isGlobalQuery = !rawUserId || rawUserId.trim() === 'all' || rawUserId.trim() === '*';
-  const cleanUserId = sanitizeUserId(rawUserId || '');
+  const { data: logs, error } = await context.databaseClient
+    .from('audit_logs')
+    .select('id, user_id, score, band, features, flags, created_at')
+    .eq('user_id', context.user.id)
+    .order('created_at', { ascending: false })
+    .limit(30);
 
-  // 4. Supabase DB query
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json(
-      { error: 'Database service not configured' },
-      { status: 503, headers: baseHeaders }
-    );
-  }
-
-  try {
-    let query = supabase
-      .from('audit_logs')
-      .select('id, user_id, score, band, features, flags, created_at')
-      .order('created_at', { ascending: false })
-      .limit(30);
-
-    if (!isGlobalQuery && cleanUserId) {
-      query = query.eq('user_id', cleanUserId);
-    }
-
-    const { data: logs, error } = await query;
-
-    if (error) {
-      // Do not expose raw database error details to client in production
-      return NextResponse.json(
-        { error: 'Failed to retrieve audit records' },
-        { status: 500, headers: baseHeaders }
-      );
-    }
-
-    return NextResponse.json(
-      { logs: logs || [] },
-      { status: 200, headers: baseHeaders }
-    );
-  } catch {
-    return NextResponse.json(
-      { error: 'Internal server error retrieving audit records' },
-      { status: 500, headers: baseHeaders }
-    );
-  }
+  if (error) return bankingJson(context, { error: 'Failed to retrieve audit records.' }, 500);
+  const response = bankingJson(context, { logs: logs ?? [] });
+  Object.entries(corsHeaders).forEach(([name, value]) => response.headers.set(name, value));
+  return response;
 }
