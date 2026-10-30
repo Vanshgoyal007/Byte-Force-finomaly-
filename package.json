@@ -1,0 +1,27 @@
+{
+  "name": "finomaly-v3",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.109.0",
+    "@types/ws": "^8.18.2",
+    "framer-motion": "^11.3.8",
+    "lucide-react": "^1.59.0",
+    "next": "^14.2.24",
+    "react": "^18",
+    "react-dom": "^18",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "typescript": "^5"
+  }
+}

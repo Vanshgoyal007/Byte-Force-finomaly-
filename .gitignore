@@ -1,0 +1,39 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Production & Build outputs
+/.next
+/out
+/build
+/.vercel
+
+# Environment variables & secrets (NEVER COMMIT)
+.env
+.env*.local
+.env.development
+.env.test
+.env.production
+*.env
+
+# Cryptographic keys & certificates
+*.pem
+*.key
+*.cert
+*.crt
+
+# Debug & system logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Python scratch / experiment generation scripts
+generate_*.py
+experiment_charts/
+experiment_charts_clean/
+
+# OS metadata
+.DS_Store
+Thumbs.db
