@@ -194,8 +194,9 @@ npm test
 
 ## Team
 
-* **Charvi Naresh**
+* **Vansh**
 * **Vasu Sharma**
+* **Arav Maheshwari**
 
 ---
 
